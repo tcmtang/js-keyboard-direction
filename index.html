@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <link href="css/axure_rp_page.css" type="text/css" rel="stylesheet">
+    <link href="css/styles.css" type="text/css" rel="stylesheet">
+    <link href="css/styles7.css" type="text/css" rel="stylesheet">
+    <style type="text/css">
+        .hide {
+            display: none;
+        }
+
+        :focus {
+            outline: solid 2px #000;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+    class ElementRect {
+        constructor(left, top, right, bottom) {
+            this.left = left
+            this.top = top
+            this.right = right
+            this.bottom = bottom
+        }
+    }
+
+    class ElementItem {
+        constructor(id, elementRect, element) {
+            this.id = id;
+            this.elementRect = elementRect;
+            this.element = element;
+        }
+    }
+
+    class ElementFocusMove {
+
+        constructor(elements) {
+            // TCM this.elements = elements;
+            // x轴方向顺序排列的元素
+            this.elementItemsX = [];
+            this.originalElementX = [];
+            // y轴方向顺序排列的元素
+            this.elementItemsY = [];
+            this.originalElementY = [];
+
+            for (let i = 0; i < elements.length; i++) {
+                let ele = elements[i];
+                let item = new ElementItem(ele.id, this.getElementRect(ele), ele);
+                this.elementItemsX.push(item);
+                this.elementItemsY.push(item);
+            }
+            // 元素按X轴排序
+            this.elementItemsX.sort((a, b) => a.elementRect.left - b.elementRect.left);
+            // 元素按Y轴排序
+            this.elementItemsY.sort((a, b) => a.elementRect.top - b.elementRect.top);
+
+            this.elementItemsX.forEach((item) => {
+                this.originalElementX.push(item.element);
+            })
+            this.elementItemsY.forEach((item) => {
+                this.originalElementY.push(item.element);
+            })
+        }
+
+        getElementRect(element) {
+            var cr = element.getBoundingClientRect()
+            return new ElementRect(cr.left, cr.top, cr.right, cr.bottom)
+        }
+
+        setElementFocus(direction) {
+            let elementItem = this.getNextElement(direction);
+            if (!elementItem) {
+                return;
+            }
+            elementItem.element.focus();
+        }
+
+        getNextElement(direction) {
+            let currentActiveElement = document.activeElement;
+            if (!currentActiveElement.id) {
+                return;
+            }
+            let nextElementItem = null
+            if (direction === 'up' || direction === 'down') {
+                let foundElementIndex = this.originalElementY.indexOf(currentActiveElement);
+                if (foundElementIndex < 0) {
+                    // 未知组件
+                    return;
+                }
+                let currentElementItem = this.elementItemsY[foundElementIndex];
+                nextElementItem = this.findRecentlyElementByY(
+                    currentElementItem, foundElementIndex, this.elementItemsY,
+                    direction === 'up' ? 0 : 1);
+            } else if (direction === 'left' || direction === 'right') {
+                let foundElementIndex = this.originalElementX.indexOf(currentActiveElement);
+                if (foundElementIndex < 0) {
+                    // 未知组件
+                    return;
+                }
+                let currentElementItem = this.elementItemsX[foundElementIndex];
+                nextElementItem =
+                    this.findRecentlyElementByX(
+                        currentElementItem, foundElementIndex, this.elementItemsX,
+                        direction === 'left' ? 0 : 1);
+            }
+            return nextElementItem;
+        }
+
+        /**
+         * 垂直方向查找元素对象
+         * @param currentElementItem 当前焦点元素
+         * @param index 焦点元素在Y轴的序号
+         * @param sourceItems Y轴顺序排列的元素集合
+         * @param direction 查找方向 0:向上查找 1:向下查找
+         * @returns {*}
+         */
+        findRecentlyElementByY(currentElementItem, index, sourceItems, direction) {
+            let i = direction === 0 ? index - 1 : index + 1;
+            let minValue = 9999999;
+            let foundItem;
+            while (direction === 0 ? i >= 0 : i < sourceItems.length) {
+                let element = sourceItems[i];
+                if ((element.elementRect.top - currentElementItem.elementRect.top) !== 0) {
+                    let distance = Math.abs(element.elementRect.left - currentElementItem.elementRect.left);
+                    if (distance < minValue) {
+                        minValue = distance;
+                        foundItem = element;
+                    }
+                }
+                if (direction === 0) i--; else i++;
+            }
+            return foundItem;
+        }
+
+        /**
+         * 水平方向查找元素对象
+         * @param currentElementItem 当前焦点元素
+         * @param index 焦点元素在X轴的序号
+         * @param sourceItems X轴顺序排列的元素集合
+         * @param direction 查找方向 0:向左查找 1:向右查找
+         * @returns {*}
+         */
+        findRecentlyElementByX(currentElementItem, index, sourceItems, direction) {
+            let i = direction === 0 ? index - 1 : index + 1;
+            let minValue = 9999999;
+            let foundItem;
+            while (direction === 0 ? i >= 0 : i < sourceItems.length) {
+                let element = sourceItems[i];
+                if ((element.elementRect.left - currentElementItem.elementRect.left) !== 0) {
+                    let distance = Math.abs(element.elementRect.top - currentElementItem.elementRect.top);
+                    if (distance < minValue) {
+                        minValue = distance;
+                        foundItem = element;
+                    }
+                }
+                if (direction === 0) i--; else i++;
+            }
+            return foundItem;
+        }
+    }
+
+    window.onload = function () {
+        let inputs = document.getElementsByTagName('input');
+        let em = new ElementFocusMove(inputs);
+        document.addEventListener('keydown', function (e) {
+            let event = e || window.event; // e:非IE浏览器使用，window.event是IE浏览器使用
+            console.log(event.shiftKey, event.altKey, event.ctrlKey, event.key, event.keyCode)
+            if (e && e.keyCode == 38) {
+                em.setElementFocus('up')
+            } else if (e && e.keyCode == 40) {
+                em.setElementFocus('down')
+            } else if (e && e.keyCode == 37) {
+                em.setElementFocus('left')
+            } else if (e && e.keyCode == 39) {
+                em.setElementFocus('right')
+            }
+        }, false)
+    }
+</script>
+<div id="base" class="">
+
+    <!-- Unnamed (Group) -->
+    <div id="u0" class="ax_default" data-left="154.5" data-top="704.5" data-width="273" data-height="128">
+
+        <!-- Unnamed (Vertical Line) -->
+        <div id="u1" class="ax_default line">
+            <img id="u1_img" class="img " src="images/page_7/u1.svg">
+            <div id="u1_text" class="text " style="display:none; visibility: hidden">
+                <p></p>
+            </div>
+        </div>
+
+        <!-- Unnamed (Vertical Line) -->
+        <div id="u2" class="ax_default line">
+            <img id="u2_img" class="img " src="images/page_7/u1.svg">
+            <div id="u2_text" class="text " style="display:none; visibility: hidden">
+                <p></p>
+            </div>
+        </div>
+
+        <!-- Unnamed (Vertical Line) -->
+        <div id="u3" class="ax_default line">
+            <img id="u3_img" class="img " src="images/page_7/u1.svg">
+            <div id="u3_text" class="text " style="display:none; visibility: hidden">
+                <p></p>
+            </div>
+        </div>
+
+        <!-- Unnamed (Vertical Line) -->
+        <div id="u4" class="ax_default line">
+            <img id="u4_img" class="img " src="images/page_7/u1.svg">
+            <div id="u4_text" class="text " style="display:none; visibility: hidden">
+                <p></p>
+            </div>
+        </div>
+
+        <!-- Unnamed (Vertical Line) -->
+        <div id="u5" class="ax_default line">
+            <img id="u5_img" class="img " src="images/page_7/u1.svg">
+            <div id="u5_text" class="text " style="display:none; visibility: hidden">
+                <p></p>
+            </div>
+        </div>
+
+        <!-- Unnamed (Vertical Line) -->
+        <div id="u6" class="ax_default line">
+            <img id="u6_img" class="img " src="images/page_7/u1.svg">
+            <div id="u6_text" class="text " style="display:none; visibility: hidden">
+                <p></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unnamed (Vertical Line) -->
+    <div id="u7" class="ax_default line">
+        <img id="u7_img" class="img " src="images/page_7/u7.svg">
+        <div id="u7_text" class="text " style="display:none; visibility: hidden">
+            <p></p>
+        </div>
+    </div>
+
+    <!-- Unnamed (Vertical Line) -->
+    <div id="u8" class="ax_default line">
+        <img id="u8_img" class="img " src="images/page_7/u7.svg">
+        <div id="u8_text" class="text " style="display:none; visibility: hidden">
+            <p></p>
+        </div>
+    </div>
+
+    <!-- Unnamed (Vertical Line) -->
+    <div id="u9" class="ax_default line">
+        <img id="u9_img" class="img " src="images/page_7/u7.svg">
+        <div id="u9_text" class="text " style="display:none; visibility: hidden">
+            <p></p>
+        </div>
+    </div>
+
+    <!-- Unnamed (Vertical Line) -->
+    <div id="u10" class="ax_default line">
+        <img id="u10_img" class="img " src="images/page_7/u7.svg">
+        <div id="u10_text" class="text " style="display:none; visibility: hidden">
+            <p></p>
+        </div>
+    </div>
+
+    <!-- Unnamed (Vertical Line) -->
+    <div id="u11" class="ax_default line">
+        <img id="u11_img" class="img " src="images/page_7/u7.svg">
+        <div id="u11_text" class="text " style="display:none; visibility: hidden">
+            <p></p>
+        </div>
+    </div>
+
+    <!-- Unnamed (Vertical Line) -->
+    <div id="u12" class="ax_default line">
+        <img id="u12_img" class="img " src="images/page_7/u7.svg">
+        <div id="u12_text" class="text " style="display:none; visibility: hidden">
+            <p></p>
+        </div>
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u13" class="ax_default text_field">
+        <div id="u13_div" class=""></div>
+        <input id="u13_input" type="text" value="" class="u13_input" style="color: rgb(153, 153, 153);"
+               data-usechatgpt-start-offset="0" data-usechatgpt-end-offset="0"
+               data-usechatgpt-marker="usechatgpt-marker"
+               data-usechatgpt-marker-start-id="usechatgpt-start-marker-c9731b64-e53a-43f3-98ab-f6b431fc0960"
+               data-usechatgpt-marker-end-id="usechatgpt-end-marker-b8bcf89e-1674-416a-8f39-aa7a4ecbfc70">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u14" class="ax_default text_field">
+        <div id="u14_div" class=""></div>
+        <input id="u14_input" type="text" value="" class="u14_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u15" class="ax_default text_field">
+        <div id="u15_div" class=""></div>
+        <input id="u15_input" type="text" value="" class="u15_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u16" class="ax_default text_field">
+        <div id="u16_div" class=""></div>
+        <input id="u16_input" type="text" value="" class="u16_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u17" class="ax_default text_field">
+        <div id="u17_div" class=""></div>
+        <input id="u17_input" type="text" value="" class="u17_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u18" class="ax_default text_field">
+        <div id="u18_div" class=""></div>
+        <input id="u18_input" type="text" value="" class="u18_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u19" class="ax_default text_field">
+        <div id="u19_div" class=""></div>
+        <input id="u19_input" type="text" value="" class="u19_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u20" class="ax_default text_field">
+        <div id="u20_div" class=""></div>
+        <input id="u20_input" type="text" value="" class="u20_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u21" class="ax_default text_field">
+        <div id="u21_div" class=""></div>
+        <input id="u21_input" type="text" value="" class="u21_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Checkbox) -->
+    <div id="u22">
+        <input type="checkbox" id="scales" name="scales" checked/>
+        <label for="scales">Scales</label>
+    </div>
+
+    <!-- Unnamed (Checkbox) -->
+    <div id="u23" class="ax_default checkbox">
+        <input type="checkbox" id="scales1" name="scales" checked/>
+        <label for="scales1">Scales</label>
+    </div>
+
+    <!-- Unnamed (Checkbox) -->
+    <div id="u24" class="ax_default checkbox">
+        <input type="checkbox" id="scales2" name="scales" checked/>
+        <label for="scales2">Scales</label>
+    </div>
+
+    <!-- Unnamed (Checkbox) -->
+    <div id="u25" class="ax_default checkbox">
+        <input type="checkbox" id="scales3" name="scales" checked/>
+        <label for="scales3">Scales</label>
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u26" class="ax_default text_field">
+        <div id="u26_div" class=""></div>
+        <input id="u26_input" type="text" value="" class="u26_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u27" class="ax_default text_field">
+        <div id="u27_div" class=""></div>
+        <input id="u27_input" type="text" value="" class="u27_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u28" class="ax_default text_field">
+        <div id="u28_div" class=""></div>
+        <input id="u28_input" type="text" value="" class="u28_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u29" class="ax_default text_field">
+        <div id="u29_div" class=""></div>
+        <input id="u29_input" type="text" value="" class="u29_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u30" class="ax_default text_field">
+        <div id="u30_div" class=""></div>
+        <input id="u30_input" type="text" value="" class="u30_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u31" class="ax_default text_field">
+        <div id="u31_div" class=""></div>
+        <input id="u31_input" type="text" value="" class="u31_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u32" class="ax_default text_field">
+        <div id="u32_div" class=""></div>
+        <input id="u32_input" type="text" value="" class="u32_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u33" class="ax_default text_field">
+        <div id="u33_div" class=""></div>
+        <input id="u33_input" type="text" value="" class="u33_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Field) -->
+    <div id="u34" class="ax_default text_field">
+        <div id="u34_div" class=""></div>
+        <input id="u34_input" type="text" value="" class="u34_input" style="color: rgb(153, 153, 153);">
+    </div>
+
+    <!-- Unnamed (Text Area) -->
+    <div id="u35" class="ax_default text_area">
+        <div id="u35_div" class=""></div>
+        <input id="u35_input" type="text" class="u35_input" style="color: rgb(153, 153, 153);"></input>
+    </div>
+
+
+</body>
+</html>
